@@ -19,16 +19,19 @@ static const NamedRGB CLOCK_COLORS[] = {{"Amber", 0xFFC478}, {"White", 0xE6E6E6}
 static const char* const CLOCK_STRIPS[] = {"Date", "High / low", "Alternate"};
 static const char* const MSG_SPEEDS[] = {"Slow", "Normal", "Fast"};
 static const uint8_t MSG_SPEED_PX[] = {12, 22, 34};
+static const char* const MSG_HOURS[] = {"1 hour", "2 hours", "4 hours", "Until changed"};
+static const uint8_t MSG_HOURS_H[] = {1, 2, 4, 0};  // 0 = never expires
 static const char* const ART_PALETTES[] = {"Ocean", "Sunset", "Forest", "Rainbow"};
 
 struct FaceCfg { uint8_t enabled; uint16_t dur; };  // in rotation, seconds on screen
 struct Faces {
-  uint8_t version = 2;
+  uint8_t version = 3;
   FaceCfg cfg[SCR_COUNT] = {{1, 20}, {1, 45}, {1, 8}, {1, 8}, {1, 15}, {1, 15}};
   uint8_t order[SCR_COUNT] = {SCR_CLOCK, SCR_WEATHER, SCR_MESSAGE, SCR_COUNTDOWN, SCR_BASIL, SCR_ART};
   uint8_t clock24 = 0, clockColor = 0, clockStrip = 2;
   uint8_t wxTemp = 1;
   uint8_t msgSpeed = 1;
+  uint8_t msgHours = 1;  // index into MSG_HOURS (2 hours)
   uint8_t artPalette = 0, artClock = 1;
 };
 Faces F;

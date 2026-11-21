@@ -106,6 +106,7 @@ void applyPatch(JsonObjectConst p) {
     pick(o["clockColor"], clockColorNames, 5, F.clockColor);
     pick(o["clockStrip"], CLOCK_STRIPS, 3, F.clockStrip);
     pick(o["msgSpeed"], MSG_SPEEDS, 3, F.msgSpeed);
+    pick(o["msgHours"], MSG_HOURS, 4, F.msgHours);
     pick(o["artPalette"], ART_PALETTES, 4, F.artPalette);
     changed = true;
   }
@@ -143,6 +144,9 @@ void buildStateJson(JsonDocument& d) {
   o["clockStrip"] = CLOCK_STRIPS[F.clockStrip];
   o["wxTemp"] = (bool)F.wxTemp;
   o["msgSpeed"] = MSG_SPEEDS[F.msgSpeed];
+  o["msgHours"] = MSG_HOURS[F.msgHours];
+  d["msg_live"] = messageLive();
+  d["msg_time"] = S.msgTime;
   o["artPalette"] = ART_PALETTES[F.artPalette];
   o["artClock"] = (bool)F.artClock;
   d["mqtt"] = L.mqttUp;

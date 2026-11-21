@@ -73,11 +73,19 @@ void drawClock() {
 }
 
 // ---------- Message board ----------
+// A message is live until it's older than the "Show message for" option.
+bool messageLive() {
+  if (S.message.length() == 0) return false;
+  uint8_t h = MSG_HOURS_H[F.msgHours];
+  if (h == 0 || !timeValid() || S.msgTime < 1700000000) return true;
+  return (uint32_t)time(nullptr) < S.msgTime + h * 3600UL;
+}
+
 // Returns true once the message has scrolled fully past.
 bool drawMessage(uint32_t elapsed) {
   drawRows(2, 1, ICON_HEART, 5, c565(0xFF3C78));
   drawText(9, 1, "MESSAGE", 0x962850);
-  String msg = S.message.length() ? S.message : String(previewing ? "HELLO!" : "");
+  String msg = messageLive() ? S.message : String(previewing ? "WELCOME HOME" : "");
   if (msg.length() == 0) {
     drawTextCentered(13, "NO MESSAGE", 0x606060);
     return true;
@@ -260,7 +268,7 @@ bool drawFace(uint8_t s, uint32_t el) {
 // A face has something to show (rotation skips faces that don't).
 bool screenAvailable(uint8_t s) {
   switch (s) {
-    case SCR_MESSAGE: return S.message.length() > 0;
+    case SCR_MESSAGE: return messageLive();
     case SCR_COUNTDOWN: return countdownDays() != LONG_MIN;
     case SCR_BASIL: return L.basilDays >= 0 && L.basilDays < 10;
     case SCR_WEATHER: return L.haveWeather || wxDemo;

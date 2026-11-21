@@ -88,10 +88,10 @@ footer a{color:var(--ac2)}
 const OPTS={
  clock:[["clock24","24-hour time","toggle"],["clockColor","Colour","choice",["Amber","White","Cyan","Green","Pink"]],["clockStrip","Bottom line","choice",["Date","High / low","Alternate"]]],
  weather:[["wxTemp","Show temperature","toggle"]],
- message:[["msgSpeed","Scroll speed","choice",["Slow","Normal","Fast"]]],
+ message:[["msgHours","Show message for","choice",["1 hour","2 hours","4 hours","Until changed"]],["msgSpeed","Scroll speed","choice",["Slow","Normal","Fast"]]],
  art:[["artPalette","Palette","choice",["Ocean","Sunset","Forest","Rainbow"]],["artClock","Show clock","toggle"]],
  countdown:[],basil:[]};
-const NOTES={weather:"A stick figure acts out the weather Home Assistant sends.",basil:"Joins the rotation only when Basil has under 10 days of food left.",art:"Slow colour waves, a calm screen for the evening."};
+const NOTES={message:"Messages come from Home Assistant's message bank (e.g. welcome home) or from here, and leave the rotation once they're older than the time below.",weather:"A stick figure acts out the weather Home Assistant sends.",basil:"Joins the rotation only when Basil has under 10 days of food left.",art:"Slow colour waves, a calm screen for the evening."};
 const COLS=[["Rainbow","conic-gradient(red,yellow,lime,cyan,blue,magenta,red)"],["White","#fff"],["Pink","#ff3c8c"],["Cyan","#00c8ff"],["Amber","#ffaa00"],["Green","#30ff60"],["Red","#ff2020"]];
 const $=id=>document.getElementById(id);
 let st=null,sel=null,msgColor=null,busy=false,thumbs={},draft={},detailFor=null;
