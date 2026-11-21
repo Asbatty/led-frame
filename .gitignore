@@ -1,0 +1,8 @@
+# Real credentials: never commit (copy secrets.example.h to secrets.h)
+firmware/LedFrame/secrets.h
+build/
+
+# Private install details for Claude
+CLAUDE.local.md
+# Snapshot output
+frame.png
