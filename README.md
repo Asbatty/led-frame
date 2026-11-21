@@ -17,6 +17,18 @@ a phone page on the local network.
 
 **Auto** mode rotates through the screens; each screen can also be pinned.
 
+<p>
+  <img src="docs/img/clock.png" width="49%" alt="Clock face with weather">
+  <img src="docs/img/weather-sunny.png" width="49%" alt="Stick figure sunbathing in sunglasses">
+  <img src="docs/img/weather-rainy.png" width="49%" alt="Stick figure under an umbrella in the rain">
+  <img src="docs/img/weather-windy.png" width="49%" alt="Stick figure clinging to a pole in the wind">
+  <img src="docs/img/weather-lightning.png" width="49%" alt="Stick figure with hair on end in a thunderstorm">
+  <img src="docs/img/weather-pouring.png" width="49%" alt="Stick figure swimming in a downpour">
+</p>
+
+Captured from the running frame with `tools/snapshot.py`. More on the
+[project page](https://asbatty.github.io/portfolio/led-frame/).
+
 ## Hardware
 
 - Waveshare 64×32 P4 HUB75 RGB matrix panel

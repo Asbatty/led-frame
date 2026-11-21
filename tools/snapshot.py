@@ -2,10 +2,12 @@
 
     python tools/snapshot.py                 -> frame.png (from http://matrix.local)
     python tools/snapshot.py 192.168.1.50 out.png
+    python tools/snapshot.py saved_frame.txt out.png   (a saved /api/frame dump)
 
 Reads /api/frame (the firmware's off-screen canvas) and draws each pixel as an LED.
 Needs only the Python standard library.
 """
+import os
 import struct
 import sys
 import urllib.request
@@ -15,7 +17,10 @@ host = sys.argv[1] if len(sys.argv) > 1 else "matrix.local"
 out = sys.argv[2] if len(sys.argv) > 2 else "frame.png"
 SCALE, W, H = 10, 64, 32
 
-text = urllib.request.urlopen(f"http://{host}/api/frame", timeout=10).read().decode()
+if os.path.isfile(host):
+    text = open(host, encoding="utf-8").read()
+else:
+    text = urllib.request.urlopen(f"http://{host}/api/frame", timeout=10).read().decode()
 rows = [r for r in text.split("\n") if r]
 pix = []
 for r in rows[:H]:
