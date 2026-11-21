@@ -63,6 +63,52 @@ void applyPatch(JsonObjectConst p) {
     d.trim();
     if (d.length() == 0 || validDate(d)) { S.cdDate = d; changed = true; }
   }
+
+  // ---- faces ----
+  if (p["show"].is<const char*>()) {  // pin one face, like picking a watch face
+    int s = faceByKey(p["show"].as<String>());
+    if (s >= 0) { S.mode = FACE_MODE[s]; showScreen(s); changed = true; }
+  }
+  if (p["rotate"] == true) { S.mode = MODE_AUTO; showScreen(curScreen); changed = true; }
+  if (p["faces"].is<JsonObjectConst>()) {  // {"clock":{"enabled":true,"dur":20}, ...}
+    for (JsonPairConst kv : p["faces"].as<JsonObjectConst>()) {
+      int s = faceByKey(kv.key().c_str());
+      if (s < 0) continue;
+      JsonObjectConst f = kv.value();
+      if (f["enabled"].is<bool>()) F.cfg[s].enabled = f["enabled"].as<bool>();
+      if (f["dur"].is<int>()) F.cfg[s].dur = constrain(f["dur"].as<int>(), 3, 600);
+      changed = true;
+    }
+  }
+  if (p["order"].is<JsonArrayConst>()) {  // ["clock","weather",...]; missing faces keep their relative order
+    uint8_t next[SCR_COUNT], n = 0;
+    bool used[SCR_COUNT] = {};
+    for (JsonVariantConst v : p["order"].as<JsonArrayConst>()) {
+      int s = faceByKey(v.as<String>());
+      if (s >= 0 && !used[s] && n < SCR_COUNT) { next[n++] = s; used[s] = true; }
+    }
+    for (int i = 0; i < SCR_COUNT; i++) if (!used[F.order[i]]) next[n++] = F.order[i];
+    memcpy(F.order, next, SCR_COUNT);
+    changed = true;
+  }
+  if (p["opts"].is<JsonObjectConst>()) {
+    JsonObjectConst o = p["opts"];
+    auto pick = [](JsonVariantConst v, const char* const* names, int n, uint8_t& out) {
+      if (!v.is<const char*>()) return false;
+      for (int i = 0; i < n; i++) if (v.as<String>().equalsIgnoreCase(names[i])) { out = i; return true; }
+      return false;
+    };
+    const char* clockColorNames[5];
+    for (int i = 0; i < 5; i++) clockColorNames[i] = CLOCK_COLORS[i].name;
+    if (o["clock24"].is<bool>()) F.clock24 = o["clock24"].as<bool>();
+    if (o["wxTemp"].is<bool>()) F.wxTemp = o["wxTemp"].as<bool>();
+    if (o["artClock"].is<bool>()) F.artClock = o["artClock"].as<bool>();
+    pick(o["clockColor"], clockColorNames, 5, F.clockColor);
+    pick(o["clockStrip"], CLOCK_STRIPS, 3, F.clockStrip);
+    pick(o["msgSpeed"], MSG_SPEEDS, 3, F.msgSpeed);
+    pick(o["artPalette"], ART_PALETTES, 4, F.artPalette);
+    changed = true;
+  }
   if (changed) settingsChanged();
 }
 
@@ -80,7 +126,33 @@ void buildStateJson(JsonDocument& d) {
     d["weather"]["rain_soon"] = L.rainSoon;
   }
   d["basil_days"] = L.basilDays;
+  d["showing"] = FACE_KEYS[curScreen];
+  JsonArray faces = d["faces"].to<JsonArray>();
+  for (int i = 0; i < SCR_COUNT; i++) {
+    uint8_t s = F.order[i];
+    JsonObject f = faces.add<JsonObject>();
+    f["key"] = FACE_KEYS[s];
+    f["name"] = FACE_NAMES[s];
+    f["enabled"] = (bool)F.cfg[s].enabled;
+    f["dur"] = F.cfg[s].dur;
+    f["available"] = screenAvailable(s);
+  }
+  JsonObject o = d["opts"].to<JsonObject>();
+  o["clock24"] = (bool)F.clock24;
+  o["clockColor"] = CLOCK_COLORS[F.clockColor].name;
+  o["clockStrip"] = CLOCK_STRIPS[F.clockStrip];
+  o["wxTemp"] = (bool)F.wxTemp;
+  o["msgSpeed"] = MSG_SPEEDS[F.msgSpeed];
+  o["artPalette"] = ART_PALETTES[F.artPalette];
+  o["artClock"] = (bool)F.artClock;
   d["mqtt"] = L.mqttUp;
+  d["uptime"] = millis() / 1000;
+  static const char* const RESETS[] = {"unknown", "power-on", "external", "software", "crash", "interrupt watchdog",
+                                       "task watchdog", "other watchdog", "deep sleep", "brownout", "sdio"};
+  int rr = (int)esp_reset_reason();
+  d["reset"] = rr >= 0 && rr <= 10 ? RESETS[rr] : "unknown";
+  d["heap"] = ESP.getFreeHeap();
+  d["heap_min"] = ESP.getMinFreeHeap();
   d["ip"] = WiFi.localIP().toString();
   d["rssi"] = WiFi.RSSI();
   d["fw"] = FW_VERSION;

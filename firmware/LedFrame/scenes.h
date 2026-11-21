@@ -245,6 +245,6 @@ void drawWeather() {
     drawWeatherScene(c, upper(c.substring(0, 12)));
     return;
   }
-  String t = isnan(L.temp) ? String("") : String((int)lroundf(L.temp)) + "\xC2\xB0";
+  String t = (isnan(L.temp) || !F.wxTemp) ? String("") : String((int)lroundf(L.temp)) + "\xC2\xB0";
   drawWeatherScene(L.cond, t);
 }

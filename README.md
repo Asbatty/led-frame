@@ -73,8 +73,12 @@ ESP32 HUB75 LED MATRIX PANEL DMA Display, Adafruit GFX, PubSubClient, ArduinoJso
 
 ## Controlling it
 
-- **Phone:** `http://matrix.local`: power, brightness, screen, message and colour, countdown, test alerts.
-- **Home Assistant:** the *LED Frame* device. Example automation action:
+- **Phone (watch-face app):** `http://matrix.local`, add it to the home screen. A live view of the panel,
+  a swipeable gallery of faces with real previews (tap to show one, or let them rotate), per-face options
+  (12/24-hour clock, colours, bottom line, weather temperature, message speed, art palette), and the
+  rotation order with on/off and seconds per face.
+- **Home Assistant:** the *LED Frame* device (mode select, message, alerts, and an "in rotation" switch per
+  face, kept in sync with the app). Example automation action:
   ```yaml
   action: notify.send_message
   target: { entity_id: notify.led_frame_alert }

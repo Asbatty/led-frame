@@ -1,17 +1,13 @@
 #pragma once
-// ---- The screens: clock & weather, message, countdown, Basil, art, alerts ----
+// ---- The faces: clock, weather, message, countdown, Basil, art; alerts; rotation ----
 #include <time.h>
 #include <limits.h>
 
-enum Screen : uint8_t { SCR_CLOCK, SCR_MESSAGE, SCR_COUNTDOWN, SCR_BASIL, SCR_ART, SCR_WEATHER };
-static const uint8_t AUTO_ORDER[] = {SCR_CLOCK, SCR_WEATHER, SCR_MESSAGE, SCR_COUNTDOWN, SCR_BASIL, SCR_ART};
-static const int AUTO_N = sizeof(AUTO_ORDER) / sizeof(AUTO_ORDER[0]);
-
 uint8_t curScreen = SCR_CLOCK;
 uint32_t screenStart = 0;
+bool previewing = false;  // drawing a gallery thumbnail: fill in sample data where real data is missing
 
 bool timeValid() { return time(nullptr) > 1700000000; }
-
 
 // Whole days from today until the countdown date; LONG_MIN when not set.
 long countdownDays() {
@@ -29,38 +25,45 @@ long countdownDays() {
   return lround(difftime(mktime(&target), mktime(&today)) / 86400.0);
 }
 
-// ---------- Clock & weather ----------
+String timeText(const struct tm& tm, bool colon) {
+  char b[8];
+  int h = tm.tm_hour;
+  if (!F.clock24) { h %= 12; if (h == 0) h = 12; }
+  snprintf(b, sizeof b, F.clock24 ? "%02d%c%02d" : "%d%c%02d", h, colon ? ':' : ' ', tm.tm_min);
+  return b;
+}
+
+// ---------- Clock ----------
 void drawClock() {
   String t = "--:--";
   struct tm tm;
-  if (timeValid() && getLocalTime(&tm, 0)) {
-    int h = tm.tm_hour % 12;
-    if (h == 0) h = 12;
-    char b[8];
-    snprintf(b, sizeof b, "%d%c%02d", h, (frameMs % 1000) < 500 ? ':' : ' ', tm.tm_min);
-    t = b;
-  }
-  drawText(max(1, (44 - textWidth(t, 2)) / 2), 3, t, 0xFFC478, 2);
+  bool haveTime = timeValid() && getLocalTime(&tm, 0);
+  if (haveTime) t = timeText(tm, (frameMs % 1000) < 500 || previewing);
+  drawText(max(1, (44 - textWidth(t, 2)) / 2), 3, t, CLOCK_COLORS[F.clockColor].rgb, 2);
 
   // Weather: icon top right, temperature under it, blinking drop when rain is coming
-  String temp = "--";
-  if (L.haveWeather) {
-    drawWeatherIcon(L.cond, 53, 7);
-    if (!isnan(L.temp)) temp = String((int)lroundf(L.temp));
+  bool wx = L.haveWeather || previewing;
+  String cond = L.haveWeather ? L.cond : String("partlycloudy");
+  float temp = L.haveWeather ? L.temp : 64, hi = L.haveWeather ? L.hi : 70, lo = L.haveWeather ? L.lo : 51;
+  String ts = "--";
+  if (wx) {
+    drawWeatherIcon(cond, 53, 7);
+    if (!isnan(temp)) ts = String((int)lroundf(temp));
   }
-  temp += "\xC2\xB0";
-  int tw = textWidth(temp), tx = 53 - tw / 2;
-  drawText(tx, 17, temp, L.haveWeather ? 0xFFFFFF : 0x606060);
+  ts += "\xC2\xB0";
+  int tw = textWidth(ts), tx = 53 - tw / 2;
+  drawText(tx, 17, ts, wx ? 0xFFFFFF : 0x606060);
   if (L.rainSoon && (frameMs / 500) % 2 == 0) drawRows(tx + tw + 2, 17, ICON_DROP, 5, c565(0x3399FF));
 
   canvas.drawFastHLine(2, 22, 60, c565(0x00283C));
 
-  // Bottom strip alternates the date and today's high/low
-  bool showHiLo = L.haveWeather && !isnan(L.hi) && !isnan(L.lo) && (frameMs / 4000) % 2 == 1;
+  // Bottom line: date, today's high/low, or alternating between them
+  bool canHiLo = wx && !isnan(hi) && !isnan(lo);
+  bool showHiLo = canHiLo && (F.clockStrip == 1 || (F.clockStrip == 2 && (frameMs / 4000) % 2 == 1));
   if (showHiLo) {
-    String hl = "H " + String((int)lroundf(L.hi)) + "\xC2\xB0  L " + String((int)lroundf(L.lo)) + "\xC2\xB0";
+    String hl = "H " + String((int)lroundf(hi)) + "\xC2\xB0  L " + String((int)lroundf(lo)) + "\xC2\xB0";
     drawTextCentered(25, hl, 0x00BEC8);
-  } else if (timeValid() && getLocalTime(&tm, 0)) {
+  } else if (haveTime) {
     char d[16];
     strftime(d, sizeof d, "%a %b %d", &tm);
     String ds = upper(d);
@@ -74,21 +77,21 @@ void drawClock() {
 bool drawMessage(uint32_t elapsed) {
   drawRows(2, 1, ICON_HEART, 5, c565(0xFF3C78));
   drawText(9, 1, "MESSAGE", 0x962850);
-  if (S.message.length() == 0) {
+  String msg = S.message.length() ? S.message : String(previewing ? "HELLO!" : "");
+  if (msg.length() == 0) {
     drawTextCentered(13, "NO MESSAGE", 0x606060);
     return true;
   }
-  int w = textWidth(S.message, 2);
-  int x = PANEL_W - (int)(elapsed * 22 / 1000);
-  drawText(x, 10, S.message, COLORS[S.color].rgb, 2);
+  int w = textWidth(msg, 2);
+  int x = previewing ? 2 : PANEL_W - (int)(elapsed * MSG_SPEED_PX[F.msgSpeed] / 1000);
+  drawText(x, 10, msg, COLORS[S.color].rgb, 2);
   if (S.msgTime > 1700000000) {
     time_t mt = S.msgTime;
     struct tm tm;
     localtime_r(&mt, &tm);
-    int h = tm.tm_hour % 12;
-    if (h == 0) h = 12;
     char b[20];
-    snprintf(b, sizeof b, "SENT %d:%02d %s", h, tm.tm_min, tm.tm_hour < 12 ? "AM" : "PM");
+    if (F.clock24) snprintf(b, sizeof b, "SENT %02d:%02d", tm.tm_hour, tm.tm_min);
+    else snprintf(b, sizeof b, "SENT %d:%02d %s", tm.tm_hour % 12 ? tm.tm_hour % 12 : 12, tm.tm_min, tm.tm_hour < 12 ? "AM" : "PM");
     drawTextCentered(25, b, 0x5A5A5A);
   }
   return x < -w;
@@ -96,17 +99,19 @@ bool drawMessage(uint32_t elapsed) {
 
 // ---------- Countdown ----------
 void drawCountdown() {
-  int px0 = (int)((frameMs / 70) % 84) - 10;
+  int px0 = previewing ? 40 : (int)((frameMs / 70) % 84) - 10;
   for (int x = px0 - 12; x < px0; x += 3) canvas.drawPixel(x, 2, c565(0x3C3C50));
   drawRows(px0, 1, ICON_PLANE, 3, c565(0xFFFFFF));
 
   long days = countdownDays();
+  String name = S.cdName;
+  if (days == LONG_MIN && previewing) { days = 12; name = "BEACH TRIP"; }
   if (days == LONG_MIN) {
     drawTextCentered(12, "SET A", 0x808080);
     drawTextCentered(19, "COUNTDOWN", 0x808080);
     return;
   }
-  String name = upper(S.cdName.length() ? S.cdName : String("COUNTDOWN"));
+  name = upper(name.length() ? name : String("COUNTDOWN"));
   if (name.length() > 15) name = name.substring(0, 15);
   drawTextCentered(7, name, 0xFFFFFF);
 
@@ -119,18 +124,24 @@ void drawCountdown() {
     int g = textWidth(d, 2) + 3 + textWidth(unit), x0 = (PANEL_W - g) / 2;
     drawText(x0, 14, d, 0x00C8FF, 2);
     drawText(x0 + textWidth(d, 2) + 3, 19, unit, 0xC8C8C8);
-    // Bar fills up over the last 60 days
-    int fill = 56 - (int)(56 * min(days, 60L) / 60);
+    int fill = 56 - (int)(56 * min(days, 60L) / 60);  // bar fills up over the last 60 days
     for (int x = 0; x < 56; x++) canvas.drawPixel(4 + x, 28, x < fill ? c565(0x00C88C) : c565(0x1E1E1E));
   }
 }
 
-// ---------- Basil's food (only shown when under 10 days) ----------
+// ---------- Basil's food (rotation shows it only under 10 days) ----------
 void drawBasil() {
-  uint32_t col = L.basilDays < 5 ? 0xFF5030 : 0xFFAA00;
+  int days = L.basilDays >= 0 ? L.basilDays : (previewing ? 7 : -1);
+  if (days < 0) {
+    drawRows(2, 1, ICON_CAT, 6, c565(0x808080));
+    drawText(11, 2, "BASIL", 0xC8C8C8);
+    drawTextCentered(16, "NO FOOD DATA", 0x606060);
+    return;
+  }
+  uint32_t col = days < 5 ? 0xFF5030 : 0xFFAA00;
   drawRows(2, 1, ICON_CAT, 6, c565(col));
   drawText(11, 2, "BASIL", 0xC8C8C8);
-  String d = String(L.basilDays), unit = L.basilDays == 1 ? "DAY" : "DAYS";
+  String d = String(days), unit = days == 1 ? "DAY" : "DAYS";
   int g = textWidth(d, 2) + 3 + textWidth(unit), x0 = (PANEL_W - g) / 2;
   drawText(x0, 11, d, col, 2);
   drawText(x0 + textWidth(d, 2) + 3, 16, unit, 0xC8C8C8);
@@ -140,25 +151,39 @@ void drawBasil() {
 // ---------- Ambient art: slow colour waves with a small clock ----------
 int8_t SIN8[256];
 uint16_t PALETTE[256];
+uint8_t paletteBuilt = 255;
 
 // Very faint colour channels flicker on HUB75 panels at low brightness, so each
 // channel is either fully off or at least ART_MIN.
 #define ART_MIN 48
 
 void initArt() {
+  for (int i = 0; i < 256; i++) SIN8[i] = (int8_t)lroundf(sinf(i * 2 * PI / 256) * 127);
+}
+
+void buildPalette(uint8_t p) {
   for (int i = 0; i < 256; i++) {
-    SIN8[i] = (int8_t)lroundf(sinf(i * 2 * PI / 256) * 127);
-    uint32_t c = hsvRGB(i * 360 / 256 + 180, 255, 150);
+    int tri = i < 128 ? i : 255 - i;  // 0..127..0 so non-rainbow palettes loop smoothly
+    int h;
+    switch (p) {
+      case 1: h = 300 + tri * 110 / 127; break;  // Sunset: magenta -> orange
+      case 2: h = 70 + tri * 100 / 127; break;   // Forest: lime -> teal
+      case 3: h = i * 360 / 256; break;          // Rainbow
+      default: h = 170 + tri * 100 / 127; break; // Ocean: cyan -> violet
+    }
+    uint32_t c = hsvRGB(h, 255, 150);
     uint8_t ch[3] = {(uint8_t)(c >> 16), (uint8_t)(c >> 8), (uint8_t)c};
     for (uint8_t& v : ch) v = v < ART_MIN / 2 ? 0 : max(v, (uint8_t)ART_MIN);
     PALETTE[i] = c565(((uint32_t)ch[0] << 16) | ((uint32_t)ch[1] << 8) | ch[2]);
   }
+  paletteBuilt = p;
 }
 
 bool artFrozen = false;      // debug: /api/tune?freeze=1 holds the art still
 uint32_t artFrozenAt = 0;
 
 void drawArt() {
+  if (paletteBuilt != F.artPalette) buildPalette(F.artPalette);
   uint32_t t = (artFrozen ? artFrozenAt : frameMs) / 40;
   for (int y = 0; y < PANEL_H; y++)
     for (int x = 0; x < PANEL_W; x++) {
@@ -166,11 +191,8 @@ void drawArt() {
       canvas.drawPixel(x, y, PALETTE[(v / 3 + t / 3) & 255]);
     }
   struct tm tm;
-  if (timeValid() && getLocalTime(&tm, 0)) {
-    int h = tm.tm_hour % 12;
-    if (h == 0) h = 12;
-    char b[8];
-    snprintf(b, sizeof b, "%d:%02d", h, tm.tm_min);
+  if (F.artClock && timeValid() && getLocalTime(&tm, 0)) {
+    String b = timeText(tm, true);
     int w = textWidth(b);
     canvas.fillRect(PANEL_W - w - 4, 23, w + 4, 9, 0);
     drawText(PANEL_W - w - 2, 25, b, 0xDCDCDC);
@@ -217,7 +239,25 @@ void drawAlert() {
   if ((el / 400) % 2 == 0) canvas.drawRect(0, 0, PANEL_W, PANEL_H, c565(dimRGB(L.alertColor, 180)));
 }
 
-// ---------- Choosing what to show ----------
+// ---------- Drawing one face ----------
+// Returns true when a one-pass face (message) has finished.
+bool drawFace(uint8_t s, uint32_t el) {
+  switch (s) {
+    case SCR_CLOCK: drawClock(); return false;
+    case SCR_MESSAGE: return drawMessage(el);
+    case SCR_COUNTDOWN: drawCountdown(); return false;
+    case SCR_BASIL: drawBasil(); return false;
+    case SCR_WEATHER:
+      if (L.haveWeather || wxDemo) drawWeather();
+      else if (previewing) drawWeatherScene("sunny", F.wxTemp ? "72\xC2\xB0" : "");
+      else drawTextCentered(13, "NO WEATHER YET", 0x606060);
+      return false;
+    default: drawArt(); return false;
+  }
+}
+
+// ---------- Rotation ----------
+// A face has something to show (rotation skips faces that don't).
 bool screenAvailable(uint8_t s) {
   switch (s) {
     case SCR_MESSAGE: return S.message.length() > 0;
@@ -228,17 +268,19 @@ bool screenAvailable(uint8_t s) {
   }
 }
 
-uint32_t screenDuration(uint8_t s) {
-  switch (s) {
-    case SCR_CLOCK: return 20000;
-    case SCR_ART: return 15000;
-    case SCR_WEATHER: return 15000;
-    case SCR_MESSAGE: return 45000;  // or until one full scroll
-    default: return 8000;
-  }
-}
+bool inRotation(uint8_t s) { return F.cfg[s].enabled && screenAvailable(s); }
 
 void showScreen(uint8_t s) { curScreen = s; screenStart = frameMs; }
+
+void nextInRotation() {
+  int idx = 0;
+  for (int i = 0; i < SCR_COUNT; i++) if (F.order[i] == curScreen) idx = i;
+  for (int k = 1; k <= SCR_COUNT; k++) {
+    uint8_t s = F.order[(idx + k) % SCR_COUNT];
+    if (inRotation(s)) { showScreen(s); return; }
+  }
+  if (!inRotation(curScreen)) showScreen(SCR_CLOCK);  // nothing enabled: fall back to the clock
+}
 
 void renderFrame() {
   canvas.fillScreen(0);
@@ -249,36 +291,16 @@ void renderFrame() {
   if (wxDemo) { drawWeather(); return; }  // demo holds the weather screen
 
   if (S.mode != MODE_AUTO) {
-    uint8_t want = S.mode == MODE_CLOCK ? SCR_CLOCK : S.mode == MODE_MESSAGE ? SCR_MESSAGE
-                 : S.mode == MODE_COUNTDOWN ? SCR_COUNTDOWN : S.mode == MODE_WEATHER ? SCR_WEATHER : SCR_ART;
-    if (want != curScreen) showScreen(want);
+    int want = screenForMode(S.mode);
+    if (want >= 0 && want != curScreen) showScreen(want);
   }
 
   uint32_t el = frameMs - screenStart;
-  bool done = false;
-  switch (curScreen) {
-    case SCR_CLOCK: drawClock(); break;
-    case SCR_MESSAGE:
-      done = drawMessage(el);
-      if (done && S.mode == MODE_MESSAGE) { screenStart = frameMs; done = false; }  // loop forever
-      break;
-    case SCR_COUNTDOWN: drawCountdown(); break;
-    case SCR_BASIL: drawBasil(); break;
-    case SCR_WEATHER:
-      if (L.haveWeather || wxDemo) drawWeather();
-      else drawTextCentered(13, "NO WEATHER YET", 0x606060);
-      break;
-    default: drawArt(); break;
-  }
+  bool done = drawFace(curScreen, el);
+  if (done && S.mode != MODE_AUTO) { screenStart = frameMs; done = false; }  // pinned message loops
 
-  if (S.mode == MODE_AUTO && (done || el > screenDuration(curScreen) || !screenAvailable(curScreen))) {
-    int idx = 0;
-    for (int i = 0; i < AUTO_N; i++) if (AUTO_ORDER[i] == curScreen) idx = i;
-    for (int k = 1; k <= AUTO_N; k++) {
-      uint8_t s = AUTO_ORDER[(idx + k) % AUTO_N];
-      if (screenAvailable(s)) { showScreen(s); break; }
-    }
-  }
+  if (S.mode == MODE_AUTO && (done || el > F.cfg[curScreen].dur * 1000UL || !inRotation(curScreen)))
+    nextInRotation();
 }
 
 // Simple full-screen status text (boot, Wi-Fi setup, updates)

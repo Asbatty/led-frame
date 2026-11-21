@@ -7,12 +7,19 @@ install (IPs, hosts, accounts) are in CLAUDE.local.md (git-ignored).
 ## Layout
 - `firmware/LedFrame/` — the Arduino sketch. Header-only modules, all compiled as one unit via LedFrame.ino:
   - `config.h` pins, panel defaults, time zone, `FW_VERSION` (bump on every change)
-  - `state.h` saved settings (Preferences) + live data from HA; modes list (append new modes at the end)
+  - `state.h` saved settings (Preferences) + live data from HA; modes list (append new modes at the end);
+    faces (`Screen` enum, `FACE_KEYS`), the `Faces` struct (rotation on/off, seconds, order, per-face
+    options) saved as one blob — bump `Faces::version` if its layout changes (old blobs are then ignored)
   - `gfx.h` canvas, colours, icons, `pushFrame()` (handles the 180° flip)
   - `font.h` 3×5 font (`drawText`, `textWidth`, UTF-8 ° supported)
   - `scenes.h` stick-figure weather scenes (`drawWeatherScene(cond, label)`)
   - `screens.h` clock/message/countdown/Basil/art screens, alerts, auto rotation (`AUTO_ORDER`)
-  - `web.h` phone page (PROGMEM HTML), `/api/*`, `/update`, ArduinoOTA
+  - `web.h` the watch-face app (PROGMEM HTML/JS: live view, face gallery with previews, per-face options,
+    rotation order), `/api/state` (GET; POST patches incl. `show`, `rotate`, `faces`, `order`, `opts`),
+    `/api/frame.bin` (live RGB565), `/api/preview?face=` (one face drawn off-screen with sample data),
+    `/api/frame` (text dump), `/api/tune`, `/update`, ArduinoOTA
+  - Adding a face: add to `Screen`/`FACE_KEYS`/`FACE_NAMES`/`FACE_MODE` (and a Mode at the end), draw it in
+    `drawFace()`, give it a default in `Faces` (bump version), add its options to `OPTS` in the page JS.
   - `mqtt.h` discovery payload, state topics, command handling
   - `secrets.h` (git-ignored) MQTT + OTA passwords; template in `secrets.example.h`
 - `tools/flash.ps1` build + install over Wi-Fi (or `-Usb COM5`); `tools/snapshot.py` PNG of the live frame

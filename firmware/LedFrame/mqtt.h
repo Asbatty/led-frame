@@ -42,15 +42,16 @@ void publishDiscovery() {
   d["avty_t"] = topic("status");
 
   JsonObject c = d["cmps"].to<JsonObject>();
-  auto add = [&](const char* key, const char* platform, const char* name) {
+  // Strings (not char pointers) so ArduinoJson copies keys and names built at runtime
+  auto add = [&](const String& key, const char* platform, const String& name) {
     JsonObject e = c[key].to<JsonObject>();
     e["p"] = platform;
     e["uniq_id"] = devId + "_" + key;
-    if (name) e["name"] = name; else e["name"] = nullptr;
+    if (name.length()) e["name"] = name; else e["name"] = nullptr;
     return e;
   };
 
-  JsonObject e = add("light", "light", nullptr);
+  JsonObject e = add("light", "light", "");
   e["schema"] = "json";
   e["cmd_t"] = topic("light/set");
   e["stat_t"] = topic("light/state");
@@ -104,6 +105,16 @@ void publishDiscovery() {
   e["state_class"] = "measurement";
   e["entity_category"] = "diagnostic";
 
+  // One switch per face: is it in the rotation?
+  for (int s = 0; s < SCR_COUNT; s++) {
+    String key = String("rot_") + FACE_KEYS[s], name = String(FACE_NAMES[s]) + " in rotation";
+    e = add(key, "switch", name);
+    e["cmd_t"] = topic((key + "/set").c_str());
+    e["stat_t"] = topic((key + "/state").c_str());
+    e["icon"] = "mdi:rotate-3d-variant";
+    e["entity_category"] = "config";
+  }
+
   e = add("ip", "sensor", "IP address");
   e["stat_t"] = topic("diag");
   e["value_template"] = "{{ value_json.ip }}";
@@ -129,6 +140,8 @@ void publishState() {
   mqtt.publish(topic("message/state").c_str(), S.message.c_str(), true);
   mqtt.publish(topic("cd_name/state").c_str(), S.cdName.c_str(), true);
   mqtt.publish(topic("cd_date/state").c_str(), S.cdDate.c_str(), true);
+  for (int s = 0; s < SCR_COUNT; s++)
+    mqtt.publish(topic((String("rot_") + FACE_KEYS[s] + "/state").c_str()).c_str(), F.cfg[s].enabled ? "ON" : "OFF", true);
 }
 
 void publishDiag() {
@@ -173,7 +186,10 @@ void onMqtt(char* t, byte* payload, unsigned int len) {
   }
 
   JsonDocument patch;
-  if (tp == topic("light/set")) {
+  if (tp.startsWith("ledframe/rot_") && tp.endsWith("/set")) {  // face rotation switch
+    String key = tp.substring(13, tp.length() - 4);
+    patch["faces"][key]["enabled"] = (p == "ON");
+  } else if (tp == topic("light/set")) {
     JsonDocument d;
     if (deserializeJson(d, p)) return;
     if (d["state"].is<const char*>()) patch["on"] = String(d["state"].as<const char*>()) == "ON";
@@ -193,7 +209,7 @@ void mqttSetup() {
   char id[20];
   snprintf(id, sizeof id, "ledframe_%02x%02x%02x", mac[3], mac[4], mac[5]);
   devId = id;
-  mqtt.setBufferSize(4096);
+  mqtt.setBufferSize(6144);  // discovery payload is ~4 KB
   mqtt.setKeepAlive(30);
   mqtt.setSocketTimeout(5);
   mqtt.setCallback(onMqtt);

@@ -4,8 +4,44 @@
 #include <ArduinoJson.h>
 
 // New modes go at the end so saved settings keep their meaning.
-enum Mode : uint8_t { MODE_AUTO = 0, MODE_CLOCK, MODE_MESSAGE, MODE_COUNTDOWN, MODE_ART, MODE_WEATHER, MODE_COUNT };
-static const char* const MODE_NAMES[MODE_COUNT] = {"Auto", "Clock", "Message", "Countdown", "Art", "Weather"};
+enum Mode : uint8_t { MODE_AUTO = 0, MODE_CLOCK, MODE_MESSAGE, MODE_COUNTDOWN, MODE_ART, MODE_WEATHER, MODE_BASIL, MODE_COUNT };
+static const char* const MODE_NAMES[MODE_COUNT] = {"Auto", "Clock", "Message", "Countdown", "Art", "Weather", "Basil"};
+
+// ---- Faces (screens), like watch faces: rotation, order, per-face options ----
+enum Screen : uint8_t { SCR_CLOCK, SCR_MESSAGE, SCR_COUNTDOWN, SCR_BASIL, SCR_ART, SCR_WEATHER, SCR_COUNT };
+static const char* const FACE_KEYS[SCR_COUNT] = {"clock", "message", "countdown", "basil", "art", "weather"};
+static const char* const FACE_NAMES[SCR_COUNT] = {"Clock", "Message", "Countdown", "Basil", "Art", "Weather"};
+static const uint8_t FACE_MODE[SCR_COUNT] = {MODE_CLOCK, MODE_MESSAGE, MODE_COUNTDOWN, MODE_BASIL, MODE_ART, MODE_WEATHER};
+
+// Option choices (index stored in Faces)
+struct NamedRGB { const char* name; uint32_t rgb; };
+static const NamedRGB CLOCK_COLORS[] = {{"Amber", 0xFFC478}, {"White", 0xE6E6E6}, {"Cyan", 0x00C8FF}, {"Green", 0x30FF60}, {"Pink", 0xFF3C8C}};
+static const char* const CLOCK_STRIPS[] = {"Date", "High / low", "Alternate"};
+static const char* const MSG_SPEEDS[] = {"Slow", "Normal", "Fast"};
+static const uint8_t MSG_SPEED_PX[] = {12, 22, 34};
+static const char* const ART_PALETTES[] = {"Ocean", "Sunset", "Forest", "Rainbow"};
+
+struct FaceCfg { uint8_t enabled; uint16_t dur; };  // in rotation, seconds on screen
+struct Faces {
+  uint8_t version = 2;
+  FaceCfg cfg[SCR_COUNT] = {{1, 20}, {1, 45}, {1, 8}, {1, 8}, {1, 15}, {1, 15}};
+  uint8_t order[SCR_COUNT] = {SCR_CLOCK, SCR_WEATHER, SCR_MESSAGE, SCR_COUNTDOWN, SCR_BASIL, SCR_ART};
+  uint8_t clock24 = 0, clockColor = 0, clockStrip = 2;
+  uint8_t wxTemp = 1;
+  uint8_t msgSpeed = 1;
+  uint8_t artPalette = 0, artClock = 1;
+};
+Faces F;
+
+int faceByKey(const String& k) {
+  for (int i = 0; i < SCR_COUNT; i++) if (k.equalsIgnoreCase(FACE_KEYS[i])) return i;
+  return -1;
+}
+
+int screenForMode(uint8_t m) {
+  for (int i = 0; i < SCR_COUNT; i++) if (FACE_MODE[i] == m) return i;
+  return -1;
+}
 
 static const uint32_t COLOR_RAINBOW = 0x1000000;
 struct NamedColor { const char* name; uint32_t rgb; };
@@ -56,6 +92,11 @@ void loadSettings() {
   S.cdName = prefs.getString("cdName", "");
   S.cdDate = prefs.getString("cdDate", "");
   S.msgTime = prefs.getULong("msgTime", 0);
+  Faces saved;
+  if (prefs.getBytesLength("faces") == sizeof(Faces)) {
+    prefs.getBytes("faces", &saved, sizeof(Faces));
+    if (saved.version == Faces().version) F = saved;
+  }
   prefs.end();
   if (S.mode >= MODE_COUNT) S.mode = MODE_AUTO;
   if (S.color >= COLOR_COUNT) S.color = 0;
@@ -72,6 +113,7 @@ void saveSettings() {
   prefs.putString("cdName", S.cdName);
   prefs.putString("cdDate", S.cdDate);
   prefs.putULong("msgTime", S.msgTime);
+  prefs.putBytes("faces", &F, sizeof(Faces));
   prefs.end();
 }
 
