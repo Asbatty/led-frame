@@ -137,23 +137,78 @@ void drawCountdown() {
   }
 }
 
+// ---------- Basil's portrait: grey-and-white cat, cute-sprite style, from a photo ----------
+// Big wide head, big eyes with a highlight, small upright body, tail curling right.
+// G grey, D dark-grey edge, W white, w soft shadow on white, P pink (ears, nose),
+// E amber iris, H eye highlight, K pupil (off = black)
+static const char* const BASIL_ART[] = {
+  "..DD..............DD..",
+  ".DGGD............DGGD.",
+  ".DGPGD..........DGPGD.",
+  ".DGPPGDDDDDDDDDDGPPGD.",
+  "DGGPPGGGGGGGGGGGGPPGGD",
+  "DGGGGGGGGGWWGGGGGGGGGD",
+  "DGGEEEEGGGWWGGGEEEEGGD",
+  "DGGEHKEGGWWWWGGEHKEGGD",
+  "DGGEKKEGGWWWWGGEKKEGGD",
+  "DGGGEEGGWWWWWWGGEEGGGD",
+  "DGGGGGGWWWPPWWWGGGGGGD",
+  ".DGGGGWWWWwwWWWWGGGGD.",
+  "..DGGGGWWWWWWWWGGGGD..",
+  "...DDGGGwwwwwwGGGDD...",
+  ".....DGWWWWWWWWGD.....",
+  "....DGGWWWWWWWWGGD....",
+  "....DGGWWWWWWWWGGD....",
+  "...DGGGWWWWWWWWGGGD...",
+  "...DGGGWWwWWwWWGGGD...",
+  "..DGGGGWWwWWwWWGGGGDD.",
+  "..DGGGGWWwWWwWWGGGGGGD",
+  "..DDGGGWWWDDWWWGGGGGGD",
+  "....DDDWWW..WWWDDDDDD.",
+};
+static const int BASIL_ROWS = sizeof(BASIL_ART) / sizeof(BASIL_ART[0]);
+
+void drawBasilPortrait(int x, int y) {
+  for (int j = 0; j < BASIL_ROWS; j++)
+    for (int i = 0; BASIL_ART[j][i]; i++) {
+      uint32_t c;
+      switch (BASIL_ART[j][i]) {
+        case 'G': c = 0x6E7280; break;
+        case 'D': c = 0x444752; break;
+        case 'W': c = 0xE6E6E6; break;
+        case 'w': c = 0xA8A8B2; break;
+        case 'P': c = 0xFF96AA; break;
+        case 'E': c = 0xE0A020; break;
+        case 'H': c = 0xFFFFFF; break;
+        default: continue;  // '.' and pupils stay off
+      }
+      canvas.drawPixel(x + i, y + j, c565(c));
+    }
+  // She blinks every few seconds: eyes become closed lines
+  if (!previewing && (frameMs % 4200) < 160) {
+    canvas.fillRect(x + 3, y + 6, 4, 4, c565(0x6E7280));
+    canvas.fillRect(x + 15, y + 6, 4, 4, c565(0x6E7280));
+    canvas.drawFastHLine(x + 3, y + 8, 4, c565(0x30323A));
+    canvas.drawFastHLine(x + 15, y + 8, 4, c565(0x30323A));
+  }
+}
+
 // ---------- Basil's food (rotation shows it only under 10 days) ----------
 void drawBasil() {
   int days = L.basilDays >= 0 ? L.basilDays : (previewing ? 7 : -1);
+  drawBasilPortrait(0, 5);
+  const int cx = 44;  // text column centre, right of the portrait
+  drawText(cx - textWidth("BASIL") / 2, 3, "BASIL", 0xFFB4C0);
   if (days < 0) {
-    drawRows(2, 1, ICON_CAT, 6, c565(0x808080));
-    drawText(11, 2, "BASIL", 0xC8C8C8);
-    drawTextCentered(16, "NO FOOD DATA", 0x606060);
+    drawText(cx - textWidth("NO DATA") / 2, 15, "NO DATA", 0x606060);
     return;
   }
   uint32_t col = days < 5 ? 0xFF5030 : 0xFFAA00;
-  drawRows(2, 1, ICON_CAT, 6, c565(col));
-  drawText(11, 2, "BASIL", 0xC8C8C8);
   String d = String(days), unit = days == 1 ? "DAY" : "DAYS";
-  int g = textWidth(d, 2) + 3 + textWidth(unit), x0 = (PANEL_W - g) / 2;
+  int g = textWidth(d, 2) + 3 + textWidth(unit), x0 = cx - g / 2;
   drawText(x0, 11, d, col, 2);
   drawText(x0 + textWidth(d, 2) + 3, 16, unit, 0xC8C8C8);
-  drawTextCentered(25, "OF FOOD LEFT", 0x808080);
+  drawText(cx - textWidth("FOOD LEFT") / 2, 25, "FOOD LEFT", 0x808080);
 }
 
 // ---------- Ambient art: slow colour waves with a small clock ----------

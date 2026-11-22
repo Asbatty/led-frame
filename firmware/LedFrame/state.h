@@ -26,7 +26,7 @@ static const char* const ART_PALETTES[] = {"Ocean", "Sunset", "Forest", "Rainbow
 struct FaceCfg { uint8_t enabled; uint16_t dur; };  // in rotation, seconds on screen
 struct Faces {
   uint8_t version = 3;
-  FaceCfg cfg[SCR_COUNT] = {{1, 20}, {1, 45}, {1, 8}, {1, 8}, {1, 15}, {1, 15}};
+  FaceCfg cfg[SCR_COUNT] = {{1, 30}, {1, 45}, {1, 30}, {1, 30}, {1, 30}, {1, 30}};  // at least 30 s each
   uint8_t order[SCR_COUNT] = {SCR_CLOCK, SCR_WEATHER, SCR_MESSAGE, SCR_COUNTDOWN, SCR_BASIL, SCR_ART};
   uint8_t clock24 = 0, clockColor = 0, clockStrip = 2;
   uint8_t wxTemp = 1;
