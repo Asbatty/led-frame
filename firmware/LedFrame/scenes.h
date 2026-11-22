@@ -8,6 +8,13 @@ static const uint32_t SKIN = 0xFFC896, FIG = 0xF0F0F0;
 static inline void ln(int x0, int y0, int x1, int y1, uint32_t c = FIG) { canvas.drawLine(x0, y0, x1, y1, c565(c)); }
 static inline void dot(int x, int y, uint32_t c) { canvas.drawPixel(x, y, c565(c)); }
 static inline void headAt(int x, int y) { canvas.fillCircle(x, y, 2, c565(SKIN)); }
+// Two-pixel eyes on a front-facing head; a dark blue rather than black (black reads as a hole). Blinks now and then.
+static const uint32_t EYE = 0x2838A0;
+static inline bool blinking() { return (frameMs % 4200) < 140; }
+static inline void eyesAt(int x, int y) {
+  if (blinking()) return;
+  dot(x - 1, y - 1, EYE); dot(x + 1, y - 1, EYE);
+}
 
 // Standing figure, feet on y = g. Arm end points are given relative to the shoulder (x, g-8).
 void stander(int x, int g, int ax1, int ay1, int ax2, int ay2, uint32_t body = FIG) {
@@ -17,6 +24,7 @@ void stander(int x, int g, int ax1, int ay1, int ax2, int ay2, uint32_t body = F
   ln(x, g - 8, x + ax1, g - 8 + ay1, body);           // arms
   ln(x, g - 8, x + ax2, g - 8 + ay2, body);
   headAt(x, g - 12);
+  eyesAt(x, g - 12);
 }
 
 static inline float wave(float speed, float phase = 0) { return sinf(frameMs * speed + phase); }
@@ -112,6 +120,7 @@ void scenePouring() {
   ln(29, hy + 3, flip ? 25 : 26, flip ? hy - 3 : hy + 1);           // flailing arms
   ln(31, hy + 3, flip ? 34 : 35, flip ? hy + 1 : hy - 3);
   headAt(30, hy);
+  dot(29, hy - 1, EYE); dot(31, hy - 1, EYE);                       // wide open, no blinking in a flood
   for (int x = 0; x < 64; x++) {                                     // rising water with waves
     int wy = 23 + (int)lroundf(sinf(x * 0.35f + frameMs * 0.004f));
     for (int y = wy; y < 32; y++) dot(x, y, y == wy ? 0x60B0FF : (y < 27 ? 0x1E50B4 : 0x143278));
@@ -181,6 +190,7 @@ void sceneWindy() {
   ln(26, 19 + w1, 34, 16 + w2);                                      // legs
   ln(26, 19 + w1, 34, 22 + w3);
   headAt(14, 16);
+  if (!blinking()) dot(13, 15, EYE);                                 // side-on: one eye, looking at the pole
   static const int8_t WY[] = {4, 21, 9, 26, 18, 2};
   for (int i = 0; i < 6; i++) {                                      // wind streaks
     int x = (int)((frameMs / 6 + i * 29) % 90) - 12, len = 5 + (i * 3) % 6;
