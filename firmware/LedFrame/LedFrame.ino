@@ -35,6 +35,12 @@ void applyPatch(JsonObjectConst p) {
   bool changed = false;
   if (p["on"].is<bool>()) { S.on = p["on"]; changed = true; }
   if (p["brightness"].is<int>()) { S.brightness = constrain(p["brightness"].as<int>(), 1, 255); changed = true; }
+  if (p["flip"].is<bool>()) {  // panel mounted upside down; saved for next boot
+    panelFlip = p["flip"];
+    prefs.begin("panel", false);
+    prefs.putBool("flip", panelFlip);
+    prefs.end();
+  }
   if (p["mode"].is<const char*>()) {
     int m = modeIndexByName(p["mode"].as<String>());
     if (m >= 0) { S.mode = m; showScreen(curScreen); changed = true; }
@@ -116,6 +122,7 @@ void applyPatch(JsonObjectConst p) {
 void buildStateJson(JsonDocument& d) {
   d["on"] = S.on;
   d["brightness"] = S.brightness;
+  d["flip"] = panelFlip;
   d["mode"] = MODE_NAMES[S.mode];
   d["message"] = S.message;
   d["color"] = COLORS[S.color].name;

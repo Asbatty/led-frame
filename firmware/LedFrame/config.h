@@ -1,7 +1,7 @@
 #pragma once
 // ---- Hardware and fixed settings for the LED wall frame ----
 
-#define FW_VERSION "0.3.3"
+#define FW_VERSION "0.3.4"
 
 // Panel drive defaults (can be overridden over Wi-Fi, saved in flash).
 // Fewer colour bits = no ultra-short LED pulses, so dim colours don't flicker.

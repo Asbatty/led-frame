@@ -81,6 +81,10 @@ footer a{color:var(--ac2)}
 <div class="list" id="order"></div>
 <p class="note">Rotation skips faces that have nothing to show (no message, no countdown set, Basil above 10 days).</p>
 
+<h2>Panel</h2>
+<div class="row"><button id="flip">Flip upside down</button><span class="sub" id="flipv"></span></div>
+<p class="note">Turns the whole picture 180&deg; if the panel is mounted the other way up in its frame.</p>
+
 <h2>Test</h2>
 <div class="row"><button id="ta">Test alert</button><button id="tr">Rain alert</button></div>
 <footer id="foot"></footer>
@@ -108,6 +112,7 @@ async function thumb(k){try{const b=await api("/api/preview?face="+k);thumbs[k]=
 
 function face(k){return st.faces.find(f=>f.key===k)}
 function render(){
+ $("flipv").textContent=st.flip?"Turned 180°":"Normal";
  $("power").textContent=st.on?"On":"Off";$("power").className=st.on?"on":"";
  $("ha").textContent=st.mqtt?"Home Assistant ✓":"Home Assistant offline";$("ha").className="pill"+(st.mqtt?" ok":"");
  if(document.activeElement!==$("bri")){$("bri").value=st.brightness}$("briv").textContent=Math.round(st.brightness/2.55)+"%";
@@ -176,6 +181,7 @@ function renderOrder(){
   d.append(n,up,dn,sw(f.enabled,v=>save({faces:{[f.key]:{enabled:v}}})));o.appendChild(d)})}
 
 $("power").onclick=()=>save({on:!st.on});
+$("flip").onclick=()=>save({flip:!st.flip});
 $("bri").oninput=()=>{$("briv").textContent=Math.round($("bri").value/2.55)+"%"};$("bri").onchange=()=>save({brightness:+$("bri").value});
 $("rot").onclick=()=>save({rotate:true});
 $("ta").onclick=()=>api("/api/alert",{text:"TEST ALERT",icon:"bell",duration:8});
